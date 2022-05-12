@@ -19,6 +19,9 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, NewType, Optional, Tuple, Union
 
 from ..models.bert import BertTokenizer, BertTokenizerFast
+from ..models.roberta import RobertaTokenizer, RobertaTokenizerFast
+from ..models.xlm_roberta import XLMRobertaTokenizer, XLMRobertaTokenizerFast
+from ..models.herbert import HerbertTokenizer, HerbertTokenizerFast
 from ..tokenization_utils_base import PreTrainedTokenizerBase
 from ..utils import PaddingStrategy
 
@@ -946,21 +949,44 @@ class DataCollatorForWholeWordMask(DataCollatorForLanguageModeling):
         """
         Get 0/1 labels for masked tokens with whole word mask proxy
         """
-        if not isinstance(self.tokenizer, (BertTokenizer, BertTokenizerFast)):
+        if not isinstance(self.tokenizer, (BertTokenizer, BertTokenizerFast,
+                                           RobertaTokenizer, RobertaTokenizerFast,
+                                           XLMRobertaTokenizer, XLMRobertaTokenizerFast,
+                                           HerbertTokenizer, HerbertTokenizerFast)):
             warnings.warn(
-                "DataCollatorForWholeWordMask is only suitable for BertTokenizer-like tokenizers. "
+                "DataCollatorForWholeWordMask is only suitable for BertTokenizer or RobertaTokenizer-like tokenizers. "
                 "Please refer to the documentation for more information."
             )
 
         cand_indexes = []
+        special_tokens = [val for key, val in self.tokenizer.special_tokens_map.items()
+                          if key not in ['unk_token', 'mask_token']]
+        is_bert_tokenizer = isinstance(self.tokenizer, (BertTokenizer, BertTokenizerFast))
         for (i, token) in enumerate(input_tokens):
-            if token == "[CLS]" or token == "[SEP]":
+            if token in special_tokens:
                 continue
 
-            if len(cand_indexes) >= 1 and token.startswith("##"):
-                cand_indexes[-1].append(i)
-            else:
-                cand_indexes.append([i])
+            if is_bert_tokenizer:
+                if len(cand_indexes) >= 1 and token.startswith("##"):
+                    cand_indexes[-1].append(i)
+                else:
+                    cand_indexes.append([i])
+            else:  # Roberta-like tokenizers have </w> token at the end to indicate end of word
+                # edge case for chinese (##) are added in DataCollatorForWholeWordMask
+                if token.startswith("##"):
+                    token = token[2:]
+                    if token.endswith("</w>"):
+                        token = token[:-4]
+                if len(cand_indexes) == 0:
+                    cand_indexes.append([i])
+                else:
+                    cand_indexes[-1].append(i)
+
+                if token.endswith("</w>"):
+                    cand_indexes.append([])
+
+        if len(cand_indexes[-1]) == 0:
+            cand_indexes = cand_indexes[:-1]
 
         random.shuffle(cand_indexes)
         num_to_predict = min(max_predictions, max(1, int(round(len(input_tokens) * self.mlm_probability))))
