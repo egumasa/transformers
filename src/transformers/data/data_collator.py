@@ -20,8 +20,8 @@ from typing import Any, Callable, Dict, List, NewType, Optional, Tuple, Union
 
 from ..models.bert import BertTokenizer, BertTokenizerFast
 from ..models.roberta import RobertaTokenizer, RobertaTokenizerFast
-from ..models.xlm_roberta import XLMRobertaTokenizer, XLMRobertaTokenizerFast
-from ..models.herbert import HerbertTokenizer, HerbertTokenizerFast
+#from ..models.xlm_roberta import XLMRobertaTokenizer, XLMRobertaTokenizerFast
+#from ..models.herbert import HerbertTokenizer, HerbertTokenizerFast
 from ..tokenization_utils_base import PreTrainedTokenizerBase
 from ..utils import PaddingStrategy
 
@@ -949,14 +949,14 @@ class DataCollatorForWholeWordMask(DataCollatorForLanguageModeling):
         """
         Get 0/1 labels for masked tokens with whole word mask proxy
         """
-        if not isinstance(self.tokenizer, (BertTokenizer, BertTokenizerFast,
-                                           RobertaTokenizer, RobertaTokenizerFast,
-                                           XLMRobertaTokenizer, XLMRobertaTokenizerFast,
-                                           HerbertTokenizer, HerbertTokenizerFast)):
-            warnings.warn(
-                "DataCollatorForWholeWordMask is only suitable for BertTokenizer or RobertaTokenizer-like tokenizers. "
-                "Please refer to the documentation for more information."
-            )
+        #if not isinstance(self.tokenizer, (BertTokenizer, BertTokenizerFast,
+        #                                   RobertaTokenizer, RobertaTokenizerFast,
+        #                                   XLMRobertaTokenizer, XLMRobertaTokenizerFast,
+        #                                   HerbertTokenizer, HerbertTokenizerFast)):
+        #    warnings.warn(
+        #        "DataCollatorForWholeWordMask is only suitable for BertTokenizer or RobertaTokenizer-like tokenizers. "
+        #        "Please refer to the documentation for more information."
+        #    )
 
         cand_indexes = []
         special_tokens = [val for key, val in self.tokenizer.special_tokens_map.items()
