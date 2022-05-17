@@ -962,6 +962,7 @@ class DataCollatorForWholeWordMask(DataCollatorForLanguageModeling):
         special_tokens = [val for key, val in self.tokenizer.special_tokens_map.items()
                           if key not in ['unk_token', 'mask_token']]
         is_bert_tokenizer = isinstance(self.tokenizer, (BertTokenizer, BertTokenizerFast))
+        is_roberta_tokenizer = isinstance(self.tokenizer, (RobertaTokenizer, RobertaTokenizerFast))
         for (i, token) in enumerate(input_tokens):
             if token in special_tokens:
                 continue
@@ -971,23 +972,19 @@ class DataCollatorForWholeWordMask(DataCollatorForLanguageModeling):
                     cand_indexes[-1].append(i)
                 else:
                     cand_indexes.append([i])
-            else:  # Roberta-like tokenizers have </w> token at the end to indicate end of word
-                # edge case for chinese (##) are added in DataCollatorForWholeWordMask
-                if token.startswith("##"):
-                    token = token[2:]
-                    if token.endswith("</w>"):
-                        token = token[:-4]
-                if len(cand_indexes) == 0:
-                    cand_indexes.append([i])
-                else:
+            elif is_roberta_tokenizer:
+                # If a token doesn't start with Ġ, it's part of the previous token
+                if len(cand_indexes) >= 1 and not token.startswith("Ġ"):
                     cand_indexes[-1].append(i)
-
-                if token.endswith("</w>"):
-                    cand_indexes.append([])
-
+                else:
+                    cand_indexes.append([i])    
+            else:
+                raise ValueError("Whole-word masking only implemented for BERT/RoBERTa so far")
+           
         if len(cand_indexes[-1]) == 0:
             cand_indexes = cand_indexes[:-1]
-
+        
+        
         random.shuffle(cand_indexes)
         num_to_predict = min(max_predictions, max(1, int(round(len(input_tokens) * self.mlm_probability))))
         masked_lms = []
