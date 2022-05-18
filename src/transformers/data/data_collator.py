@@ -20,7 +20,7 @@ from typing import Any, Callable, Dict, List, NewType, Optional, Tuple, Union
 
 from ..models.bert import BertTokenizer, BertTokenizerFast
 from ..models.roberta import RobertaTokenizer, RobertaTokenizerFast
-#from ..models.xlm_roberta import XLMRobertaTokenizer, XLMRobertaTokenizerFast
+from ..models.xlm_roberta import XLMRobertaTokenizer, XLMRobertaTokenizerFast
 #from ..models.herbert import HerbertTokenizer, HerbertTokenizerFast
 from ..tokenization_utils_base import PreTrainedTokenizerBase
 from ..utils import PaddingStrategy
@@ -963,6 +963,7 @@ class DataCollatorForWholeWordMask(DataCollatorForLanguageModeling):
                           if key not in ['unk_token', 'mask_token']]
         is_bert_tokenizer = isinstance(self.tokenizer, (BertTokenizer, BertTokenizerFast))
         is_roberta_tokenizer = isinstance(self.tokenizer, (RobertaTokenizer, RobertaTokenizerFast))
+        is_xlm_roberta_tokenizer = isinstance(self.tokenizer, (XLMRobertaTokenizer, XLMRobertaTokenizerFast))
         for (i, token) in enumerate(input_tokens):
             if token in special_tokens:
                 continue
@@ -977,14 +978,19 @@ class DataCollatorForWholeWordMask(DataCollatorForLanguageModeling):
                 if len(cand_indexes) >= 1 and not token.startswith("Ġ"):
                     cand_indexes[-1].append(i)
                 else:
-                    cand_indexes.append([i])    
+                    cand_indexes.append([i])
+            elif is_xlm_roberta_tokenizer:
+                # If a token doesn't start with ▁, it's part of the previous token
+                if len(cand_indexes) >= 1 and not token.startswith("▁"):
+                    cand_indexes[-1].append(i)
+                else:
+                    cand_indexes.append([i])
             else:
-                raise ValueError("Whole-word masking only implemented for BERT/RoBERTa so far")
-           
+                raise ValueError("Whole-word masking only implemented for BERT/RoBERTa/XLM-Roberta so far")
+
         if len(cand_indexes[-1]) == 0:
             cand_indexes = cand_indexes[:-1]
-        
-        
+
         random.shuffle(cand_indexes)
         num_to_predict = min(max_predictions, max(1, int(round(len(input_tokens) * self.mlm_probability))))
         masked_lms = []
